@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2d6a4f">
+    <title>Аптеки — ФармА-Поиск</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="header-inner">
+        <a href="/" class="logo-link">
+            <i class="fas fa-pills logo-icon"></i>
+            <span>ФармА-Поиск</span>
+        </a>
+        <nav class="header-nav">
+            <a href="/" class="nav-link">Главная</a>
+            <a href="/staff" class="nav-link">Вход для персонала</a>
+        </nav>
+    </div>
+</header>
+
+<div class="pharmacies-container">
+    <h2 class="results-title">Аптеки Иркутска</h2>
+    <div class="pharmacies-search">
+        <input type="text" id="pharmSearch" placeholder="Поиск по названию, адресу..." oninput="loadPharmacies()">
+    </div>
+    <div class="pharmacies-grid" id="pharmGrid"></div>
+</div>
+
+<footer class="site-footer">
+    <div class="footer-prescription-notice">
+        Рецептурные препараты отпускаются строго по рецепту врача, оформленному в соответствии с требованиями Минздрава
+    </div>
+    ФармА-Поиск &copy; 2026 | Поиск и бронирование лекарств в аптеках Иркутска
+</footer>
+
+<script>
+async function loadPharmacies() {
+    const q = document.getElementById('pharmSearch').value;
+    const res = await fetch('/api/pharmacies' + (q ? '?q=' + encodeURIComponent(q) : ''));
+    const data = await res.json();
+    const grid = document.getElementById('pharmGrid');
+    if (!data || data.length === 0) {
+        grid.innerHTML = '<p style="color:#999;text-align:center;grid-column:1/-1;padding:40px;">Аптек не найдено</p>';
+        return;
+    }
+    grid.innerHTML = data.map(p => `
+        <div class="pharmacy-card">
+            <div class="pharmacy-name">${p.name}</div>
+            <div class="pharmacy-firm">${p.firm}</div>
+            <div class="pharmacy-info"><i class="fas fa-map-marker-alt"></i> ${p.address}</div>
+            <div class="pharmacy-info"><i class="fas fa-phone"></i> ${p.phone}</div>
+            <div class="pharmacy-info"><i class="fas fa-clock"></i> ${p.hours}</div>
+        </div>
+    `).join('');
+}
+loadPharmacies();
+</script>
+</body>
+</html>

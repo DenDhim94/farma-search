@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Вход для персонала — ФармА-Поиск</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=PT+Sans:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ===== ЭКРАН ВХОДА ===== -->
+<div id="loginScreen" class="login-container">
+    <div class="login-card">
+        <div class="login-icon">&#128138;</div>
+        <h1 class="login-title">Вход для персонала</h1>
+        <p class="login-subtitle">Введите пароль</p>
+        <input type="password" id="loginPassword" class="login-input" placeholder="Пароль" onkeypress="if(event.key==='Enter')doLogin()">
+        <button class="login-btn" onclick="doLogin()">Войти</button>
+        <div id="loginError" class="login-error">Неверный пароль</div>
+        <a href="/" class="login-back">&larr; На главную</a>
+    </div>
+</div>
+
+<!-- ===== ПАНЕЛЬ ПЕРСОНАЛА ===== -->
+<div id="staffPanel" class="staff-container" style="display:none">
+
+<!-- ШАПКА -->
+<header class="site-header">
+    <div class="header-inner">
+        <a href="/" class="logo-link"><span class="logo-icon">&#128138;</span>ФармА-Поиск</a>
+        <nav class="header-nav">
+            <a href="/pharmacies" class="nav-link">Аптеки</a>
+            <a href="/" class="nav-link">Главная</a>
+            <button class="cart-btn" onclick="doLogout()" title="Выйти">&#128682;</button>
+        </nav>
+    </div>
+</header>
+
+<div class="staff-content">
+
+<!-- ===== БРОНИ ===== -->
+<div class="staff-section">
+    <h2 class="staff-section-title">Брони</h2>
+    <div class="staff-filters">
+        <input type="text" id="bookingSearch" placeholder="Поиск по номеру, имени..." oninput="loadBookings()">
+        <select id="filterPharmacy" onchange="loadBookings()"><option value="all">Все аптеки</option></select>
+        <select id="filterStatus" onchange="loadBookings()">
+            <option value="all">Все статусы</option>
+            <option value="active">Активные</option>
+            <option value="ready">Готовы</option>
+            <option value="done">Завершены</option>
+            <option value="cancelled">Отменены</option>
+            <option value="expired">Просрочены</option>
+        </select>
+    </div>
+    <div class="bookings-table-wrap">
+        <table class="bookings-table">
+            <thead><tr>
+                <th>&numero; брони</th><th>Препараты</th><th>Сумма</th><th>Клиент</th><th>Телефон</th><th>Аптека</th><th>Статус</th><th>Дата</th>
+            </tr></thead>
+            <tbody id="bookingsBody"></tbody>
+        </table>
+    </div>
+</div>
+
+</div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let currentRole = null;
+
+function doLogin() {
+    const pwd = document.getElementById('loginPassword').value;
+    fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({role: 'staff', password: pwd})
+    }).then(r => r.json()).then(data => {
+        if (data.ok) {
+            currentRole = data.role;
+            showPanel();
+        } else {
+            const err = document.getElementById('loginError');
+            err.style.display = 'block';
+            setTimeout(() => err.style.display = 'none', 3000);
+        }
+    }).catch(() => {
+        showToast('Ошибка сети при входе', 'error');
+    });
+}
+
+function doLogout() {
+    currentRole = null;
+    document.getElementById('staffPanel').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginPassword').value = '';
+}
+
+function showPanel() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('staffPanel').style.display = 'block';
+    loadBookings();
+    loadPharmacyFilter();
+}
+
+// ===== БРОНИ =====
+function loadBookings() {
+    const q = document.getElementById('bookingSearch').value || '';
+    const dep = document.getElementById('filterPharmacy').value || 'all';
+    const status = document.getElementById('filterStatus').value || 'all';
+    const url = '/api/bookings?q=' + encodeURIComponent(q) + '&dep=' + encodeURIComponent(dep) + '&status=' + encodeURIComponent(status);
+    fetch(url).then(r => r.json()).then(data => {
+        const tbody = document.getElementById('bookingsBody');
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">Нет броней</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(b => {
+            const itemsHtml = (b.items || []).map(it => it.name + ' &times;' + it.qty).join('<br>');
+            const statusOptions = ['active','ready','done','cancelled','expired'].map(s => {
+                const sel = s === b.status ? 'selected' : '';
+                const labels = {active:'Активна', ready:'Готова', done:'Завершена', cancelled:'Отменена', expired:'Просрочена'};
+                return '<option value="' + s + '" ' + sel + '>' + labels[s] + '</option>';
+            }).join('');
+            return '<tr>' +
+                '<td style="font-family:var(--font-mono);font-weight:600;color:#2d6a4f">' + b.id + '</td>' +
+                '<td style="font-size:0.82rem">' + itemsHtml + '</td>' +
+                '<td style="color:#e63946;font-weight:600">' + (b.total_price || 0) + ' &#8381;</td>' +
+                '<td>' + (b.client_name || '') + '</td>' +
+                '<td style="font-family:var(--font-mono);font-size:0.82rem">' + (b.client_phone || '') + '</td>' +
+                '<td style="font-size:0.82rem">' + (b.dep_name || '') + '</td>' +
+                '<td><select class="status-select" onchange="updateBookingStatus(\'' + b.id + '\', this.value)">' + statusOptions + '</select></td>' +
+                '<td style="font-family:var(--font-mono);font-size:0.78rem;color:#636e72">' + (b.created_at || '') + '</td>' +
+                '</tr>';
+        }).join('');
+    }).catch(() => {});
+}
+
+function updateBookingStatus(bookingId, status) {
+    fetch('/api/bookings/' + bookingId + '/status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: status})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            showToast('Статус брони обновлен', 'success');
+        } else {
+            showToast('Ошибка: ' + (d.error || 'Недопустимый статус'), 'error');
+            loadBookings();
+        }
+    }).catch(() => { showToast('Ошибка сети', 'error'); });
+}
+
+// ===== ФИЛЬТР АПТЕК =====
+function loadPharmacyFilter() {
+    fetch('/api/pharmacies').then(r => r.json()).then(data => {
+        const sel = document.getElementById('filterPharmacy');
+        sel.innerHTML = '<option value="all">Все аптеки</option>' + data.map(p => '<option value="' + p.name + '">' + p.name + '</option>').join('');
+    }).catch(() => {});
+}
+
+// ===== TOAST =====
+function showToast(msg, type) {
+    type = type || 'info';
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    const icons = {success:'\u2705', error:'\u274C', info:'\u2139\uFE0F'};
+    toast.innerHTML = '<span>' + (icons[type] || '') + '</span><span>' + msg + '</span>';
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('fading');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+</script>
+
+</body>
+</html>

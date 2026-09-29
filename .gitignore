@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+apteka.db
+apteka.db-wal
+apteka.db-shm
+app.log
+token_cache.json
+tokens.json
+niron_config.json
+*.bak
+*_backup
+*_malformed
